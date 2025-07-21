@@ -43,6 +43,19 @@ mood_tracker_agent = Agent(
     markdown=False,
 )
 
+cgm_agent = Agent(
+    model=gemini_model,
+    instructions=dedent("""\
+        You are a helpful assistant that extracts numerical CGM readings from user input.
+        Only respond with the numeric value (mg/dL) of the glucose level.
+        Do not explain or add any words — just return the number.
+    """),
+    add_datetime_to_instructions=False,
+    markdown=False,
+)
+
+
+
 # Function to fetch name from DB using user_id
 def get_name_from_user_id(user_id):
     cursor.execute("SELECT FirstName, LastName FROM Individuals WHERE user_id = ?", (user_id,))
@@ -62,6 +75,30 @@ def log_user_mood(user_id, user_input):
         print(f"📝 Mood '{mood}' logged for user {user_id}")
     except Exception as e:
         print(f"⚠️ Failed to detect mood: {e}")
+
+
+def log_cgm_reading(user_id, user_input):
+    try:
+        response = cgm_agent.run(user_input)
+        reading_str = response.content.strip()
+        reading = int(reading_str)
+
+        # Check if within safe range
+        is_valid = 80 <= reading <= 300
+
+        # Save to DB
+        cursor.execute(
+            "INSERT INTO CGMLogs (user_id, reading, is_valid) VALUES (?, ?, ?)",
+            (user_id, reading, is_valid)
+        )
+        conn.commit()
+
+        print(f"📈 CGM reading of {reading} mg/dL logged for user {user_id} — Valid: {is_valid}")
+
+    except ValueError:
+        print(f"❌ Could not convert response to number: '{response.content}'")
+    except Exception as e:
+        print(f"⚠️ Failed to log CGM reading: {e}")
 
 
 # Function to run interaction
@@ -86,6 +123,13 @@ def run_agent():
 
     # Log mood
     log_user_mood(user_id, mood_input)
+
+    # Ask for CGM reading
+    print("🤖: Please enter your latest glucose reading (mg/dL).")
+    cgm_input = input("👤: ")
+
+    # Log CGM reading
+    log_cgm_reading(user_id, cgm_input)
 
 
 run_agent()

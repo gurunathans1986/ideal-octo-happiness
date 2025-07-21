@@ -1,0 +1,5 @@
+agno
+google-generativeai
+google-genai
+yfinance
+duckduckgo-search

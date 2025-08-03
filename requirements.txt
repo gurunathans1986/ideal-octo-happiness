@@ -3,3 +3,5 @@ google-generativeai
 google-genai
 yfinance
 duckduckgo-search
+supabase
+sqlalchemy
